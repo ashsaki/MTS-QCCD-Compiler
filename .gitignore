@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+
+# VSCode settings
+.vscode
+
+# Python
+venv
+__pycache__
+*.pyc
+
+# output logs
+*.log
+
+# graphs
+*.gexf
