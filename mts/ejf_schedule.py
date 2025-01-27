@@ -263,7 +263,7 @@ class EJFSchedule:
             gate_ions = copy.deepcopy(self.gate_info[g])
             if ion1 in gate_ions:
                 if (n-n_prev) > threshold:
-                    print(f"breaking from ion1 n {n} n_prev {n_prev}")
+                    # print(f"breaking from ion1 n {n} n_prev {n_prev}")
                     break
                 n_prev = n
                 
@@ -271,7 +271,7 @@ class EJFSchedule:
                 other_ion = gate_ions[0]
                 
                 _, other_ion_trap = self.ion_ready_info(other_ion)
-                print(f"{n} gate ions [{ion1}, {other_ion}] traps {ion1_trap} {other_ion_trap}")
+                # print(f"{n} gate ions [{ion1}, {other_ion}] traps {ion1_trap} {other_ion_trap}")
                 ops_in_traps[ion1_trap] += 1
                 ops_in_traps[other_ion_trap] += 1
 
@@ -283,7 +283,7 @@ class EJFSchedule:
                     ion1_trap2 += 1
             elif ion2 in gate_ions:
                 if (n-n_prev) > threshold:
-                    print(f"breaking from ion2 n {n} n_prev {n_prev}")
+                    # print(f"breaking from ion2 n {n} n_prev {n_prev}")
                     break
                 n_prev = n
                 
@@ -291,7 +291,7 @@ class EJFSchedule:
                 
                 other_ion = gate_ions[0]
                 _, other_ion_trap = self.ion_ready_info(other_ion)
-                print(f"{n} gate ions [{ion2}, {other_ion}] traps {ion2_trap} {other_ion_trap}")
+                # print(f"{n} gate ions [{ion2}, {other_ion}] traps {ion2_trap} {other_ion_trap}")
                 ops_in_traps[ion2_trap] += 1
                 ops_in_traps[other_ion_trap] += 1
 
@@ -617,7 +617,7 @@ class EJFSchedule:
         fire_time = max(ready, ion1_time, ion2_time)
         fire_time = max(fire_time, specified_time)
 
-        #print("Gate", gate, "I1", ion1, "I2", ion2, "IT1", ion1_trap, "IT2", ion2_trap, "Ready", ready, "FireTime:", fire_time)
+        print("Gate", gate, "I1", ion1, "I2", ion2, "IT1", ion1_trap, "IT2", ion2_trap, "Ready", ready, "FireTime:", fire_time)
         sc = True
         if ion1_trap == ion2_trap:
             #Ions are co-located in a trap, no shuttling required
@@ -625,13 +625,19 @@ class EJFSchedule:
         else:
             #Check if there is at least one path to shuttle from src to dest trap
             #rebalances the machine if needed i.e., clear traffic blocks
-            rebal_flag, new_fin_time = self.rebalance_traps(focus_traps=[ion1_trap, ion2_trap], fire_time=fire_time)
+            rebal_flag, new_fin_time = self.rebalance_traps(
+                focus_traps=[ion1_trap, ion2_trap],
+                fire_time=fire_time
+            )
+            print(f"rebal flag {rebal_flag}")
             
             if rebal_flag:
                 return False, new_fin_time
             
             if not rebal_flag:
-                source_trap, dest_trap, sc, fin_time = self.shuttling_direction(ion1, ion2, ion1_trap, ion2_trap, fire_time=fire_time)
+                source_trap, dest_trap, sc, fin_time = self.shuttling_direction(
+                    ion1, ion2, ion1_trap, ion2_trap, fire_time=fire_time
+                )
 
                 if not sc:
                     return False, fin_time
@@ -647,8 +653,11 @@ class EJFSchedule:
                     n_ions.append(ni)
                 
                 print(f"MOV {[moving_ion]} T{source_trap} ({len(self.sys_state.trap_ions[source_trap])}) --> T{dest_trap} ({len(self.sys_state.trap_ions[dest_trap])})")
+                print(self.sys_state.print_state())
                 self.moves += abs(source_trap - dest_trap)
                 clk = self.fire_shuttle(source_trap, dest_trap, moving_ion, fire_time)
+                print("Machine state after shuttle -->")
+                print(self.sys_state.print_state())
                 self.add_gate_op(clk, dest_trap, gate, ion1, ion2)
             # else:
             #     #This is for the rebalancing case, trap_ids compute till this point may be stale
@@ -679,6 +688,7 @@ class EJFSchedule:
             if status12 == 1 and status21 == 1:
                 need_rebalance = True
         if need_rebalance:
+            print(f"Rebalancing {focus_traps[0]} {focus_traps[1]}")
             #print("Rebalance procedure", "clk=", fire_time)
             finish_time = self.do_rebalance_traps(fire_time)
             #print("Rebalance procedure", "clk=", finish_time)
@@ -772,7 +782,104 @@ class EJFSchedule:
     def do_rebalance_traps(self, fire_time):
         self.count_rebalance += 1
         rebal = RebalanceTraps(self.machine, self.sys_state)
-        flow_dict = rebal.clear_all_blocks()
+        flow_dict, trap_ids_with_neg_demand, rebal_path = rebal.clear_all_blocks()
+        
+        '''Original'''
+        # shuttle_graph = nx.DiGraph()
+        # used_flow = {}
+        clk = fire_time
+        # for i in flow_dict:
+        #     for j in flow_dict[i]:
+        #         if flow_dict[i][j] != 0:
+        #             shuttle_graph.add_edge(i, j, weight=flow_dict[i][j])
+        #             used_flow[(i, j)] = 0
+        fin_time = fire_time
+        # self.sys_state.print_state()
+
+        # nodes_topo_ordered = list(nx.topological_sort(shuttle_graph))
+
+        # # prev_node_id = None
+        # for node in nodes_topo_ordered:
+        #     if node.id in trap_ids_with_neg_demand and type(node) == Trap:
+        #         start_with_node = node
+
+                # if prev_node_id is None:
+                #     prev_node_id = node.id
+                # else:
+                #     if prev_node_id < node.id:
+                #         descending = False
+                #     else:
+                #         descending = True
+
+        # for node in shuttle_graph.nodes():
+        #     # if (shuttle_graph.in_degree(node) == 0) and type(node) == Trap:
+        #     # if node == start_with_node:
+        #     if node.id == rebal_path[0]:
+        #         print("Starting computation from", node.show())
+        #         g_updated = False
+        #         updated_graph = shuttle_graph.copy()
+        #         for edge in used_flow:
+        #             if used_flow[edge] == updated_graph[edge[0]][edge[1]]['weight']:
+        #                 updated_graph.remove_edge(edge[0], edge[1])
+        #         T = nx.dfs_tree(updated_graph, source=node)
+        #         for tnode in T:
+        #             if T.out_degree(tnode) == 0:
+        #                 shuttle_route = nx.shortest_path(T, node, tnode)
+        #                 break
+        #         for i in range(len(shuttle_route)-1):
+        #             e0 = shuttle_route[i]
+        #             e1 = shuttle_route[i+1]
+        #             if (e0, e1) in used_flow:
+        #                 used_flow[(e0, e1)] += 1
+        #             elif (e1, e0) in used_flow:
+        #                 used_flow[(e1, e0)] += 1
+                
+        #         # moving_ion = self.move_ion_for_rebalancing(node.id, tnode.id)
+        #         moving_ion = self.move_ion_for_rebalancing(node.id, rebal_path[1])
+        #         # if node.id > tnode.id:
+        #         #     moving_ion = self.sys_state.trap_ions[node.id][0]
+        #         # else:
+        #         #     moving_ion = self.sys_state.trap_ions[node.id][-1]
+
+        #         print(f"moving ion {moving_ion} from T{node.id} -> T{tnode.id} for rebalancing")
+                
+        #         ion_time, _ = self.ion_ready_info(moving_ion)
+        #         fire_time = max(fire_time, ion_time)
+                
+        #         fin_time_new = self.fire_shuttle(node.id, tnode.id, moving_ion, fire_time, route=shuttle_route)
+        #         self.sys_state.print_state()
+        #         fin_time = max(fin_time, fin_time_new)
+            
+        '''Modified'''
+        moving_ion = self.move_ion_for_rebalancing(rebal_path[0], rebal_path[1])
+        
+        # if rebal_path[0] > rebal_path[1]:
+        #     moving_ion = self.sys_state.trap_ions[rebal_path[0]][0]
+        # else:
+        #     moving_ion = self.sys_state.trap_ions[rebal_path[0]][-1]
+
+        print(f"moving ion {moving_ion} from T{rebal_path[0]} -> T{rebal_path[1]} for rebal.")
+        
+        ion_time, _ = self.ion_ready_info(moving_ion)
+        fire_time = max(fire_time, ion_time)
+        shuttle_route = rebal_path[2]
+        fin_time_new = self.fire_shuttle(
+            rebal_path[0],
+            rebal_path[1],
+            moving_ion,
+            fire_time,
+            route=shuttle_route
+        )
+        self.sys_state.print_state()
+        fin_time = max(fin_time, fin_time_new)
+
+        return fin_time
+
+    def xdo_rebalance_traps(self, fire_time):
+        # import matplotlib.pyplot as plt
+        self.count_rebalance += 1
+        rebal = RebalanceTraps(self.machine, self.sys_state)
+        flow_dict, trap_ids_with_neg_demand = rebal.clear_all_blocks()
         shuttle_graph = nx.DiGraph()
         used_flow = {}
         clk = fire_time
@@ -783,9 +890,22 @@ class EJFSchedule:
                     used_flow[(i, j)] = 0
         fin_time = fire_time
         
+        for node in shuttle_graph.nodes:
+            print(f"node type {type(node)} | id {node.id} | {shuttle_graph.nodes[node]}")
+        
+        for edge in shuttle_graph.edges:
+            print(f"{type(edge[0])} {edge[0].id} {type(edge[1])} {edge[1].id} | {shuttle_graph.edges[edge]}")
+        
+        nodes_topo_ordered = list(nx.topological_sort(shuttle_graph))
+
+        for node in nodes_topo_ordered:
+            if node.id in trap_ids_with_neg_demand and type(node) == Trap:
+                start_with_node = node
+
         for node in shuttle_graph.nodes():
-            if (shuttle_graph.in_degree(node) == 0) and type(node) == Trap:
-                g_updated = False
+            # if shuttle_graph.in_degree(node) == 0 and type(node) == Trap:
+            if node == start_with_node:
+                print("Starting computation from", node.show())
                 updated_graph = shuttle_graph.copy()
                 for edge in used_flow:
                     if used_flow[edge] == updated_graph[edge[0]][edge[1]]['weight']:
@@ -803,15 +923,23 @@ class EJFSchedule:
                     elif (e1, e0) in used_flow:
                         used_flow[(e1, e0)] += 1
                 
-                moving_ion = self.move_ion_for_rebalancing(node.id, tnode.id)
+                print(self.sys_state.print_state())
                 
+                moving_ion = self.sys_state.trap_ions[node.id][0]
                 ion_time, _ = self.ion_ready_info(moving_ion)
                 fire_time = max(fire_time, ion_time)
                 
+                print("moving", moving_ion, "along path")
+                for item in shuttle_route:
+                   print(item.show())
+                print('path end')
+                print(self.sys_state.print_state())
+                #Fire a shuttle along this route, move first ion in the source trap for now
                 fin_time_new = self.fire_shuttle(node.id, tnode.id, moving_ion, fire_time, route=shuttle_route)
                 fin_time = max(fin_time, fin_time_new)
+                break
         return fin_time
-
+    
     def run(self):
         self.gates = list(nx.topological_sort(self.ir))
         
@@ -839,10 +967,13 @@ class EJFSchedule:
             gions = self.gate_info[g]
             
             self.active_gate = g
+            print(f"current gate {gions}")
             _, ion1_trap = self.ion_ready_info(gions[0])
             _, ion2_trap = self.ion_ready_info(gions[1])
+            print(f"ion1 trap T{ion1_trap} | ion2 trap T{ion2_trap}")
             
             sx, new_fin_time = self.schedule_gate(g, specified_time)
+            print(f"sx {sx}, new fin time {new_fin_time}")
             
             if new_fin_time != 0:
                 specified_time = new_fin_time

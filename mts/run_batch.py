@@ -5,10 +5,10 @@ import time
 
 
 # PROG=["programs/sup64_new.qasm"]
-PROG=["programs/maxcut.qasm"] # qaoa
+# PROG=["programs/maxcut.qasm"] # qaoa
 # PROG=["programs/square_root_clean_new.qasm"] # sqrt
 # PROG=["programs/qft64_trimmed.qasm"] #qft
-# PROG=["programs/quadratic_form_clean.qasm"] # quadratic_form
+PROG=["programs/quadratic_form_clean.qasm"] # quadratic_form
 
 
 output_file = open('output.log','w')

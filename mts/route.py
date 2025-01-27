@@ -51,7 +51,12 @@ class FreeTrapRoute:
                 edge_states[(e1, e0)] = 0
 
         nx.set_edge_attributes(m.graph, edge_states, 'block_status')
-        ret = nx.shortest_path(m.graph, source=m.traps[source_trap], target=m.traps[dest_trap], weight='block_status')
+        ret = nx.shortest_path(
+            m.graph,
+            source=m.traps[source_trap],
+            target=m.traps[dest_trap],
+            weight='block_status'
+        )
         cost = 0
         for i in range(len(ret)-1):
             u = ret[i]
@@ -60,6 +65,8 @@ class FreeTrapRoute:
                 cost += edge_states[(u, v)]
             elif (v,u) in edge_states:
                 cost += edge_states[(v, u)]
+        print(f"Route cost {cost}")
+        print(self.ss.print_state())
         if cost > 1:
             '''
             for item in edge_states:
